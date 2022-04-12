@@ -31,10 +31,7 @@ class scoutSwarm:
         self.speed = 0.5
         self.size = size
 
-        self.param = 3
         self.map = field
-
-        self.headings = []
 
         self.agent_modes = []
         self.agent_destinations = []
@@ -45,9 +42,7 @@ class scoutSwarm:
         self.flocked = np.full(self.size, False)
 
     def spawn_agents(self):
-        self.dead = np.zeros(self.size)
         self.agents = np.zeros((self.size, 2))
-        self.headings = 0.0314 * np.random.randint(-100, 100, self.size)
         self.agent_destinations = [self.map.unchecked[ix] for ix in np.random.choice(range(len(self.map.unchecked)),
                                                                                      self.size, replace=False)]
 
@@ -58,7 +53,7 @@ class scoutSwarm:
         y = np.full(self.size, 1.0) + np.random.normal(0, 1, self.size)
 
         self.agents = np.stack((x, y), axis=1)
-        self.shadows = np.zeros((4, self.size, 2))
+
 
     def check_found(self):
         for i, agent in enumerate(self.agents):
