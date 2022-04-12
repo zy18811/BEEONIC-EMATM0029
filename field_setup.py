@@ -51,6 +51,8 @@ class Field:
         self.xlim = x_lim
         self.ylim = y_lim
 
+        self.unchecked = list({(x, y) for x in range(x_lim) for y in range(y_lim)})
+
         self.obsticles = []
         box = make_box(x_lim, y_lim, [x_lim/2, y_lim/2])
         [self.obsticles.append(box.walls[x]) for x in range(0, len(box.walls))]
@@ -115,6 +117,5 @@ class make_box(object):
 
 
 if __name__ == '__main__':
-    f = Field(1000, 1000, 20, 100)
-    plt.scatter(f.flowers[:, 0], f.flowers[:, 1], color='r')
-    plt.show()
+    f = Field(100, 100, 20, 100)
+    print(f.unchecked)

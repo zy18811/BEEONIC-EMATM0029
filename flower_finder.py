@@ -1,110 +1,33 @@
 import numpy as np
 from field_setup import Field
-from scipy.spatial.transform import Rotation as R
+from scipy.spatial.distance import cdist
 import matplotlib.pyplot as plt
 
 
-def avoidance(agents, map):
-    size = len(agents)
-    # Compute vectors between agents and wall planes
-    diffh = np.array([map.planeh - agents[n][1] for n in range(size)])
-    diffv = np.array([map.planev - agents[n][0] for n in range(size)])
+def waypoint_grid(x_lim, y_lim):
+    n = 6
+    p = 0.95
 
-    # split agent positions into x and y arrays
-    agentsx = agents.T[0]
-    agentsy = agents.T[1]
+    x_grid_max = p*x_lim
+    y_grid_max = p*y_lim
 
-    # Check intersection of agents with walls
-    low = agentsx[:, np.newaxis] >= map.limh.T[0]
-    up = agentsx[:, np.newaxis] <= map.limh.T[1]
-    intmat = up * low
+    x_grid_min = x_lim-x_grid_max
+    y_grid_min = y_lim-y_grid_max
 
-    # Compute force based vector and multiply by intersection matrix
-    Fy = np.exp(-2 * abs(diffh) + 5)
-    Fy = Fy * diffh * intmat
-
-    low = agentsy[:, np.newaxis] >= map.limv.T[0]
-    up = agentsy[:, np.newaxis] <= map.limv.T[1]
-    intmat = up * low
-
-    Fx = np.exp(-2 * abs(diffv) + 5)
-    Fx = Fx * diffv * intmat
-
-    # Sum the forces between every wall into one force.
-    Fx = np.sum(Fx, axis=1)
-    Fy = np.sum(Fy, axis=1)
-    # Combine x and y force vectors
-    F = np.array([[Fx[n], Fy[n]] for n in range(size)])
-    return F
-
-
-def spiral(x, y, speed):
-    r = 0.1
-    s = speed
-
-    theta = np.sqrt(x**2 + y**2) / r
-    f = s / np.sqrt(1 + theta**2)
-    dx = f * (x - theta * y)
-    dy = f * (theta * x + y)
-    if theta == 0: dx = 1
-
-    dx, dy = np.array([dx, dy]) / np.linalg.norm([dx, dy])
-    return x + dx, y + dy
-
-
-def random_choice(swarm):
-    pass
+    X, Y = np.meshgrid(np.linspace(x_grid_min, x_grid_max, n), np.linspace(y_grid_min, y_grid_max, n))
+    X[1::2, :] = X[1::2, ::-1]
+    return np.hstack([X.ravel().reshape(-1, 1), Y.ravel().reshape(-1, 1)])
 
 
 
-def random_walk(swarm, param):
-    alpha = 0.01
-    beta = 50
 
-    noise = param * np.random.randint(-beta, beta, (swarm.size))
-    swarm.headings += noise
 
-    # Calculate new heading vector
-    gx = 1 * np.cos(swarm.headings)
-    gy = 1 * np.sin(swarm.headings)
-    G = -np.array([[gx[n], gy[n]] for n in range(0, swarm.size)])
 
-    # Agent avoidance
-    R = 20
-    r = 2
-    A = 1
-    a = 20
-
-    a = np.zeros((swarm.size, 2))
-
-    # mag = cdist(swarm.agents, swarm.agents)
-
-    # # Compute vectors between agents
-    # diff = swarm.agents[:,:,np.newaxis]-swarm.agents.T[np.newaxis,:,:]
-
-    # R = 5; r = 5
-    # repel = R*r*np.exp(-mag/r)[:,np.newaxis,:]*diff/(swarm.size-1)
-    # repel = np.sum(repel, axis = 0).T
-
-    B = np.zeros((swarm.size, 2))
-    # B = beacon(swarm)
-    A = avoidance(swarm.agents, swarm.map)
-    a += A + G + B
-
-    vecx = a.T[0]
-    vecy = a.T[1]
-
-    angles = np.arctan2(vecy, vecx)
-    Wx = swarm.speed * np.cos(angles)
-    Wy = swarm.speed * np.sin(angles)
-
-    W = -np.stack((Wx, Wy), axis=1)
-    swarm.agents += W
 
 
 class scoutSwarm:
     def __init__(self, size, field):
-        self.agents = []
+        self.agents = np.array([])
         self.speed = 0.5
         self.size = size
 
@@ -116,19 +39,23 @@ class scoutSwarm:
         self.agent_modes = []
         self.agent_destinations = []
         self.agent_spiral_count = []
+        self.agent_spiral_origin = np.empty((self.size, 2))
+        self.waypoints = waypoint_grid(self.map.xlim, self.map.ylim)
+        self.waypoint_counter = 0
+        self.flocked = np.full(self.size, False)
 
     def spawn_agents(self):
         self.dead = np.zeros(self.size)
         self.agents = np.zeros((self.size, 2))
         self.headings = 0.0314 * np.random.randint(-100, 100, self.size)
-        self.agent_destinations = np.array([[np.random.choice(range(self.map.xlim)),
-                                             np.random.choice(range(self.map.ylim))] for _ in range(self.size)])
+        self.agent_destinations = [self.map.unchecked[ix] for ix in np.random.choice(range(len(self.map.unchecked)),
+                                                                                     self.size, replace=False)]
 
-        self.agent_modes = ['random_destination'] * self.size
+        self.agent_modes = ['waypoint'] * self.size
         self.agent_spiral_count = np.zeros(self.size)
 
-        x = np.full(self.size, 1.0)
-        y = np.full(self.size, 1.0)
+        x = np.full(self.size, 1.0) + np.random.normal(0, 1, self.size)
+        y = np.full(self.size, 1.0) + np.random.normal(0, 1, self.size)
 
         self.agents = np.stack((x, y), axis=1)
         self.shadows = np.zeros((4, self.size, 2))
@@ -137,11 +64,12 @@ class scoutSwarm:
         for i, agent in enumerate(self.agents):
             unfound = self.map.unfound_flowers
             dists = np.linalg.norm(unfound-agent, axis=1)
-            found_ixs = np.where(dists <= 1)[0]
+            found_ixs = np.where(dists <= 1.5)[0]
 
-            if found_ixs.size == 0:
-                pass
-                #self.agent_modes[i] = 'spiral'
+            if found_ixs.size != 0:
+                if self.agent_modes[i] != 'spiral':
+                    self.agent_modes[i] = 'spiral'
+                    self.agent_spiral_origin[i] = agent
 
             if self.map.found_flowers is None:
                 self.map.found_flowers = unfound[found_ixs]
@@ -150,43 +78,118 @@ class scoutSwarm:
             self.map.unfound_flowers = np.delete(unfound, found_ixs, 0)
 
     def iterate(self):
+        for agent in self.agents:
+            try:
+                self.map.unchecked.remove(tuple(np.rint(agent)))
+            except ValueError:
+                pass
+
+        flock(self)
+
         for i, (x_agent, y_agent) in enumerate(self.agents):
-            mode = self.agent_modes[i]
-            if mode == 'random_destination':
-                x_dest, y_dest = self.agent_destinations[i]
+            if self.flocked[i]:
+                self.flocked[i] = False
+            else:
+                mode = self.agent_modes[i]
 
+                if mode == 'waypoint':
+                    if self.waypoint_counter >= 36:
+                        dists = np.linalg.norm(self.map.unchecked - np.array([x_agent, y_agent]), axis=1)
+                        self.waypoints = np.append(self.waypoints, [self.map.unchecked[np.argmax(dists)]], axis=0)
 
-                if x_dest == x_agent and y_dest == y_agent:
-                    self.agent_destinations[i] = [np.random.choice(range(self.map.xlim)),
-                                                  np.random.choice(range(self.map.ylim))]
-                    x_dest, y_dest = self.agent_destinations[i]
+                    x_dest, y_dest = self.waypoints[self.waypoint_counter]
+                    v = np.array([x_dest-x_agent, y_dest-y_agent])
 
-                v = np.array([x_dest-x_agent, y_dest-y_agent])
-                if np.linalg.norm(v) <= self.speed:
-                    self.agents[i] = self.agent_destinations[i]
-                else:
-                    v /= np.linalg.norm(v)
+                    if np.linalg.norm(v) <= 3:
+                        #self.agents[i] = x_dest, y_dest
+                        self.waypoint_counter += 1
+                    #else:
+                    v/= np.linalg.norm(v)
                     self.agents[i] += v
 
-            elif mode == 'spiral':
-                x_spiral, y_spiral = spiral(x_agent, y_agent, self.speed)
-                if self.agent_spiral_count[i] == 9 or \
-                        x_spiral < 0 or x_spiral > self.map.xlim or y_spiral < 0 or y_spiral > self.map.ylim:
-                    self.agent_modes[i] = 'random_destination'
-                else:
-                    self.agents[i] += np.array([x_spiral, y_spiral])
-                    self.agent_spiral_count[i] += 1
+                if mode == 'random_destination':
+                    x_dest, y_dest = self.agent_destinations[i]
+
+                    if x_dest == x_agent and y_dest == y_agent:
+                        self.agent_destinations[i] = self.map.unchecked[np.random.choice(range(len(self.map.unchecked)))]
+                        x_dest, y_dest = self.agent_destinations[i]
+
+                    v = np.array([x_dest-x_agent, y_dest-y_agent])
+                    if np.linalg.norm(v) <= self.speed:
+                        self.agents[i] = self.agent_destinations[i]
+                    else:
+                        v /= np.linalg.norm(v)
+                        self.agents[i] += v
+
+                elif mode == 'spiral':
+                    x_o, y_o = self.agent_spiral_origin[i]
+                    x_spiral, y_spiral = spiral(x_o, y_o, x_agent, y_agent, self.agent_spiral_count[i], self.speed)
+                    if self.agent_spiral_count[i] == 200 or \
+                            x_spiral < 0 or x_spiral > self.map.xlim or y_spiral < 0 or y_spiral > self.map.ylim:
+                        self.agent_spiral_count[i] = 0
+                        self.agent_modes[i] = 'waypoint'
+                    else:
+                        self.agents[i] = np.array([x_spiral, y_spiral])
+                        self.agent_spiral_count[i] += 1
 
         self.check_found()
 
 
+def flock(swarm):
+    agent_dists = cdist(swarm.agents, swarm.agents)
+
+    for i, agent in enumerate(swarm.agents):
+        m = np.zeros(swarm.size, dtype=bool)
+        m[i] = True
+
+        neighbour_dists = np.ma.array(agent_dists[i, :], mask=m)
+        closest_dist = np.min(neighbour_dists)
+        closest_agent = swarm.agents[np.argmin(neighbour_dists)]
+
+        v = (closest_agent-agent)/np.linalg.norm(closest_agent-agent)
+        if closest_dist <= 5:
+            swarm.agents[i] -= v
+            swarm.flocked[i] = True
+        elif closest_dist > 10:
+            if swarm.agent_modes[i] != 'spiral':
+                swarm.agents[i] += v
+                swarm.flocked[i] = True
+
+
+def archspiral(x, y, s, r):
+    theta = np.sqrt(x**2+y**2)/r
+    f = s/np.sqrt(1 + theta**2)
+    dx = f*(1*x - theta*y)
+    dy = f*(theta*x + 1*y)
+    if theta == 0: dx = s
+
+    dx, dy = (np.array([dx, dy])/np.linalg.norm([dx, dy]))*s
+    x += dx
+    y += dy
+
+    return x, y
+
+
+def spiral(x_o, y_o, x, y, s_count, s=1.0, r=0.00001):
+    if s_count == 0:
+        return x_o, y_o
+    else:
+        x -= x_o
+        y -= y_o
+    x_spiral, y_spiral = archspiral(x, y, s, r)
+    return x_spiral + x_o, y_spiral + y_o
+
+
 if __name__ == '__main__':
-    f = Field(100, 100, 3, 100)
+    f = Field(100, 100, 20, 100)
     s = scoutSwarm(3, f)
     s.spawn_agents()
     print(s.agents)
-    s.iterate()
-    print(s.agents)
+    for _ in range(10):
+        s.iterate()
+        print(s.agents)
+
+
 
 
 
