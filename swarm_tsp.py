@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from field_setup import Field
+from tqdm import tqdm
 
 
 class Flower:
@@ -264,13 +265,14 @@ class GeneticAlgorithm:
     def run(self):
         if self.plot_progress:
             plt.ion()
-        for ind in range(0, self.iterations):
+        for ind in tqdm(range(0, self.iterations)):
             self.next_generation()
             self.progress.append(self.best_distance())
             if self.plot_progress and ind % 10 == 0:
                 self.plot()
             elif not self.plot_progress and ind % 10 == 0:
-                print(self.best_distance())
+                pass
+                #print(self.best_distance())
 
     def plot(self):
         print(self.best_distance())
@@ -315,7 +317,8 @@ if __name__ == '__main__':
 
     # pso = PSO(iterations=1200, population_size=300, pbest_probability=0.9, gbest_probability=0.02, cities=flowers)
     # pso.run()
-    gen = GeneticAlgorithm(cities=flowers, iterations=1200, population_size=100,
+    gen = GeneticAlgorithm(cities=flowers, iterations=100, population_size=100,
                            elites_num=20, mutation_rate=0.008, greedy_seed=1,
-                           roulette_selection=True, plot_progress=True)
+                           roulette_selection=True, plot_progress=False)
     gen.run()
+    print(len(gen.best_chromosome()))

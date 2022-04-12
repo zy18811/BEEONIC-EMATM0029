@@ -1,6 +1,6 @@
 import numpy as np
 
-flower = np.array([[1,1], [2,3], [7,7]])
-agents = np.rint(np.array([[1,1],[2.2,3.1],[4.1,5.6]])).astype(int)
+a = np.array([[1,1],[2,2],[3,3]])
+b = np.array([[1,1],[2,2],[4,4]])
 
-print(np.concatenate((flower,agents)))
+print(1-a)
