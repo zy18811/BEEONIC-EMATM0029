@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 def waypoint_grid(x_lim, y_lim):
     n = 6
-    p = 0.95
+    p = 0.97
 
     x_grid_max = p*x_lim
     y_grid_max = p*y_lim
@@ -89,13 +89,14 @@ class scoutSwarm:
 
                 if mode == 'waypoint':
                     if self.waypoint_counter >= 36:
-                        dists = np.linalg.norm(self.map.unchecked - np.array([x_agent, y_agent]), axis=1)
-                        self.waypoints = np.append(self.waypoints, [self.map.unchecked[np.argmax(dists)]], axis=0)
-
-                    x_dest, y_dest = self.waypoints[self.waypoint_counter]
+                        #dists = np.linalg.norm(self.map.unchecked - np.array([x_agent, y_agent]), axis=1)
+                        #self.waypoints = np.append(self.waypoints, [self.map.unchecked[np.argmax(dists)]], axis=0)
+                        x_dest, y_dest = 1, 1
+                    else:
+                        x_dest, y_dest = self.waypoints[self.waypoint_counter]
                     v = np.array([x_dest-x_agent, y_dest-y_agent])
 
-                    if np.linalg.norm(v) <= 3:
+                    if np.linalg.norm(v) <= 5:
                         #self.agents[i] = x_dest, y_dest
                         self.waypoint_counter += 1
                     #else:
@@ -145,7 +146,7 @@ def flock(swarm):
         if closest_dist <= 5:
             swarm.agents[i] -= v
             swarm.flocked[i] = True
-        elif closest_dist > 10:
+        elif closest_dist > 15:
             if swarm.agent_modes[i] != 'spiral':
                 swarm.agents[i] += v
                 swarm.flocked[i] = True

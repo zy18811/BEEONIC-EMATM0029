@@ -8,7 +8,7 @@ class pollenSwarm:
     def __init__(self, size, field):
         field.found_flowers = field.unfound_flowers  # hack for when 1st step isnt done
 
-        gen = GeneticAlgorithm(cities=read_flowers(field.found_flowers), iterations=1, population_size=100,
+        gen = GeneticAlgorithm(cities=read_flowers(field.found_flowers), iterations=100, population_size=100,
                                elites_num=20, mutation_rate=0.008, greedy_seed=1,
                                roulette_selection=True, plot_progress=False)
         gen.run()

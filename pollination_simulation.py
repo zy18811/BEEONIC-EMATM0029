@@ -3,6 +3,7 @@ from tsp_pollination import pollenSwarm
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import animation, rc, rcParams
+from matplotlib.lines import Line2D
 rcParams['animation.embed_limit'] = 2**128
 
 
@@ -23,8 +24,8 @@ if __name__ == '__main__':
     x_lim = 100
     y_lim = 100
 
-    f = Field(x_lim, y_lim, 50, 300)
-    s = pollenSwarm(10, f)
+    f = Field(x_lim, y_lim, 20, 200)
+    s = pollenSwarm(15, f)
     s.spawn_agents()
 
     fig, ax1 = plt.subplots(figsize=(10, 10), dpi=80, facecolor='w', edgecolor='k')
@@ -50,6 +51,12 @@ if __name__ == '__main__':
     unfound_line, = ax1.plot([], [], marker=flower_marker, markersize=10, color='r', linewidth=0, zorder=1)
     found_line, = ax1.plot([], [], marker=flower_marker, markersize=10, color='g', linewidth=0, zorder=1)
 
+    legend_markers = [Line2D([], [], marker=bee_marker, markersize=10, color='k', linewidth=0, ),
+                      Line2D([], [], color='k', ls='--'),
+                      Line2D([], [], marker=flower_marker, markersize=10, color='g', linewidth=0,)]
+
+    ax1.legend(legend_markers, ['Pollination Drone', 'Route', 'Target'], ncol=3, loc='upper left',
+               bbox_to_anchor=(0.24, 1.06))
 
     def init():
         line.set_data([], [])
@@ -61,7 +68,9 @@ if __name__ == '__main__':
     anim = animation.FuncAnimation(fig, animate, init_func=init, fargs=(s,),
                                    frames=1500, interval=200, blit=True, cache_frame_data=False)
 
-    plt.show()
+    #plt.show()
+    anim.save('pollination_sim_animation.mp4', fps=25, dpi=200)
+
 
 
 

@@ -5,10 +5,12 @@ https://github.com/rameziophobia/Travelling_Salesman_Optimization
 import random
 import math
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
 from field_setup import Field
 from tqdm import tqdm
+import imageio
 
 
 class Flower:
@@ -269,18 +271,18 @@ class GeneticAlgorithm:
             self.next_generation()
             self.progress.append(self.best_distance())
             if self.plot_progress and ind % 10 == 0:
-                self.plot()
+                self.plot(ind)
             elif not self.plot_progress and ind % 10 == 0:
                 pass
                 #print(self.best_distance())
 
-    def plot(self):
-        print(self.best_distance())
-        fig = plt.figure(0)
-        plt.plot(self.progress, 'g')
-        fig.suptitle('genetic algorithm generations')
-        plt.ylabel('Distance')
-        plt.xlabel('Generation')
+    def plot(self, ind):
+        #print(self.best_distance())
+        #fig = plt.figure(0)
+        fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(16, 8), dpi=70, facecolor='w', edgecolor='k')
+        ax2.plot(self.progress, 'g')
+        ax2.set_ylabel('Distance')
+        ax2.set_xlabel('Generation')
 
         x_list, y_list = [], []
         for city in self.best_chromosome():
@@ -288,16 +290,20 @@ class GeneticAlgorithm:
             y_list.append(city.y)
         x_list.append(self.best_chromosome()[0].x)
         y_list.append(self.best_chromosome()[0].y)
-        fig = plt.figure(1)
-        fig.clear()
-        fig.suptitle('genetic algorithm TSP')
-        plt.plot(x_list, y_list, 'ro')
-        plt.plot(x_list, y_list, 'g')
+
+        #fig.clear()
+        flower_marker = "$\u273F$"
+        ax1.plot(x_list, y_list, marker=flower_marker, markersize=10, color='g', linewidth=0,)
+        ax1.plot(x_list, y_list, 'k--')
+        ax1.legend([Line2D([], [], color='k', ls='--'),
+                    Line2D([], [], marker=flower_marker, markersize=10, color='g', linewidth=0, )],
+                   ['Route', 'Target'], loc='upper left', bbox_to_anchor=(0.3, 1.06), ncol=2)
 
         if self.plot_progress:
-            plt.draw()
+            #plt.draw()
+            plt.savefig(f'{ind}.png')
             plt.pause(0.05)
-        plt.show()
+        #plt.show()
 
 
 def greedy_route(start_index, cities):
@@ -312,13 +318,19 @@ def greedy_route(start_index, cities):
 
 
 if __name__ == '__main__':
+    """
     field = Field(50, 50, 50, 100)
     flowers = read_flowers(field.unfound_flowers)
 
     # pso = PSO(iterations=1200, population_size=300, pbest_probability=0.9, gbest_probability=0.02, cities=flowers)
     # pso.run()
-    gen = GeneticAlgorithm(cities=flowers, iterations=100, population_size=100,
+    gen = GeneticAlgorithm(cities=flowers, iterations=1000, population_size=100,
                            elites_num=20, mutation_rate=0.008, greedy_seed=1,
-                           roulette_selection=True, plot_progress=False)
+                           roulette_selection=True, plot_progress=True)
     gen.run()
     print(len(gen.best_chromosome()))
+    """
+    with imageio.get_writer('gen_algo.gif', mode='I') as writer:
+        for filename in [f'{i}.png' for i in range(0,1000,10)]:
+            image = imageio.imread(filename)
+            writer.append_data(image)
